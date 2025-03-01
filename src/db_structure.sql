@@ -1,213 +1,327 @@
--- Crear el esquema
-CREATE SCHEMA IF NOT EXISTS books;
+CREATE DATABASE IF NOT EXISTS books;
+USE books;
 
--- Crear la tabla de usuarios
-CREATE TABLE books.users (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    username TEXT NOT NULL UNIQUE,
-    email TEXT NOT NULL UNIQUE,
-    password_hash TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    firebase_token TEXT
+-- Nuevas tablas
+DROP TABLE IF EXISTS user_fav_genres;
+DROP TABLE IF EXISTS chapters_likes;
+DROP TABLE IF EXISTS user_subscriptions;
+DROP TABLE IF EXISTS likes;
+DROP TABLE IF EXISTS book_genres;
+DROP TABLE IF EXISTS chapters;
+DROP TABLE IF EXISTS books;
+DROP TABLE IF EXISTS genres;
+DROP TABLE IF EXISTS users;
+
+-- Tabla de usuarios
+CREATE TABLE users (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    firebase_token VARCHAR(255)
 );
 
--- Crear la tabla de historias
-CREATE TABLE books.stories (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    title TEXT NOT NULL,
+-- Tabla principal de "libros" (antes 'stories')
+CREATE TABLE books (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
     description TEXT,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    author_id BIGINT REFERENCES books.users(id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    author_id BIGINT,
+    CONSTRAINT fk_books_author
+        FOREIGN KEY (author_id) REFERENCES users(id)
+        ON DELETE CASCADE
 );
 
--- Crear la tabla de géneros
-CREATE TABLE books.genres (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    name TEXT NOT NULL UNIQUE
+-- Tabla de géneros
+CREATE TABLE genres (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(255) NOT NULL UNIQUE
 );
 
--- Crear la tabla intermedia de historias y géneros
-CREATE TABLE books.story_genres (
-    story_id BIGINT REFERENCES books.stories(id) ON DELETE CASCADE,
-    genre_id BIGINT REFERENCES books.genres(id) ON DELETE CASCADE,
-    PRIMARY KEY (story_id, genre_id)
+-- Tabla intermedia para asociar libros y géneros
+CREATE TABLE book_genres (
+    book_id BIGINT,
+    genre_id BIGINT,
+    PRIMARY KEY (book_id, genre_id),
+    CONSTRAINT fk_book_genres_book
+        FOREIGN KEY (book_id) REFERENCES books(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_book_genres_genre
+        FOREIGN KEY (genre_id) REFERENCES genres(id)
+        ON DELETE CASCADE
 );
 
--- Crear la tabla de capítulos
-CREATE TABLE books.chapters (
-    id BIGINT PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
-    title TEXT NOT NULL,
+-- Tabla de capítulos
+CREATE TABLE chapters (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    title VARCHAR(255) NOT NULL,
     content TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    story_id BIGINT REFERENCES books.stories(id) ON DELETE CASCADE
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    book_id BIGINT,
+    CONSTRAINT fk_chapters_book
+        FOREIGN KEY (book_id) REFERENCES books(id)
+        ON DELETE CASCADE
 );
 
--- Crear la tabla de "me gusta"
-CREATE TABLE books.likes (
-    user_id BIGINT REFERENCES books.users(id) ON DELETE CASCADE,
-    story_id BIGINT REFERENCES books.stories(id) ON DELETE CASCADE,
-    PRIMARY KEY (user_id, story_id)
+-- Tabla de "me gusta" a libros
+CREATE TABLE likes (
+    user_id BIGINT,
+    book_id BIGINT,
+    PRIMARY KEY (user_id, book_id),
+    CONSTRAINT fk_likes_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_likes_book
+        FOREIGN KEY (book_id) REFERENCES books(id)
+        ON DELETE CASCADE
 );
 
--- Procedimientos almacenados para CRUD en cada tabla
+-- 4.1) Tabla de suscripciones de usuario (followers)
+--     user_id: el usuario que es seguido
+--     follower_id: el usuario que sigue
+CREATE TABLE user_subscriptions (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY,
+    user_id BIGINT NOT NULL,
+    follower_id BIGINT NOT NULL,
+    CONSTRAINT fk_user_subscriptions_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user_subscriptions_follower
+        FOREIGN KEY (follower_id) REFERENCES users(id)
+        ON DELETE CASCADE
+);
 
--- ! Procedimiento para insertar un usuario
-CREATE OR REPLACE FUNCTION books.create_user(_username TEXT, _email TEXT, _password_hash TEXT, _firebase_token TEXT)
-RETURNS BIGINT AS $$
-DECLARE _id BIGINT;
-BEGIN
-    INSERT INTO books.users (username, email, password_hash, firebase_token)
-    VALUES (_username, _email, _password_hash, _firebase_token)
-    RETURNING id INTO _id;
-    RETURN _id;
-END;
-$$ LANGUAGE plpgsql;
+-- 4.2) Tabla de "me gusta" a capítulos
+CREATE TABLE chapters_likes (
+    user_id BIGINT,
+    chapter_id BIGINT,
+    PRIMARY KEY (user_id, chapter_id),
+    CONSTRAINT fk_chapters_likes_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_chapters_likes_chapter
+        FOREIGN KEY (chapter_id) REFERENCES chapters(id)
+        ON DELETE CASCADE
+);
 
--- Procedimiento para obtener un usuario por ID
-CREATE OR REPLACE FUNCTION books.get_user_by_id(_id BIGINT)
-RETURNS TABLE (id BIGINT, username TEXT, email TEXT, created_at TIMESTAMP, firebase_token TEXT) AS $$
-BEGIN
-    RETURN QUERY SELECT u.id, u.username, u.email, u.created_at, u.firebase_token FROM books.users u WHERE u.id = _id;
-END;
-$$ LANGUAGE plpgsql;
+-- 4.3) Tabla para géneros favoritos de cada usuario
+CREATE TABLE user_fav_genres (
+    user_id BIGINT,
+    genre_id BIGINT,
+    PRIMARY KEY (user_id, genre_id),
+    CONSTRAINT fk_user_fav_genres_user
+        FOREIGN KEY (user_id) REFERENCES users(id)
+        ON DELETE CASCADE,
+    CONSTRAINT fk_user_fav_genres_genre
+        FOREIGN KEY (genre_id) REFERENCES genres(id)
+        ON DELETE CASCADE
+);
 
--- Procedimiento para actualizar un usuario
-CREATE OR REPLACE FUNCTION books.update_user(_id BIGINT, _username TEXT, _email TEXT, _password_hash TEXT, _firebase_token TEXT)
-RETURNS VOID AS $$
-BEGIN
-    UPDATE books.users SET username = _username, email = _email, password_hash = _password_hash, firebase_token = _firebase_token WHERE id = _id;
-END;
-$$ LANGUAGE plpgsql;
+DELIMITER $$
 
--- Procedimiento para eliminar un usuario
-CREATE OR REPLACE FUNCTION books.delete_user(_id BIGINT)
-RETURNS VOID AS $$
+CREATE PROCEDURE create_user (
+    IN _username VARCHAR(255),
+    IN _email VARCHAR(255),
+    IN _password_hash VARCHAR(255),
+    IN _firebase_token VARCHAR(255)
+)
 BEGIN
-    DELETE FROM books.users WHERE id = _id;
-END;
-$$ LANGUAGE plpgsql;
+    INSERT INTO Ls (username, email, password_hash, firebase_token)
+    VALUES (_username, _email, _password_hash, _firebase_token);
+    SELECT LAST_INSERT_ID() AS inserted_id;
+END$$
 
--- ! Procedimiento para insertar una historia
-CREATE OR REPLACE FUNCTION books.create_story(_title TEXT, _description TEXT, _author_id BIGINT)
-RETURNS BIGINT AS $$
-DECLARE _id BIGINT;
+CREATE PROCEDURE get_user_by_id (
+    IN _id BIGINT
+)
 BEGIN
-    INSERT INTO books.stories (title, description, author_id)
-    VALUES (_title, _description, _author_id)
-    RETURNING id INTO _id;
-    RETURN _id;
-END;
-$$ LANGUAGE plpgsql;
+    SELECT id, username, email, created_at, firebase_token
+    FROM users
+    WHERE id = _id;
+END$$
 
--- Procedimiento para obtener historias por autor
-CREATE OR REPLACE FUNCTION books.get_stories_by_author(_author_id BIGINT)
-RETURNS TABLE (id BIGINT, title TEXT, description TEXT, created_at TIMESTAMP) AS $$
+CREATE PROCEDURE update_user (
+    IN _id BIGINT,
+    IN _username VARCHAR(255),
+    IN _email VARCHAR(255),
+    IN _password_hash VARCHAR(255),
+    IN _firebase_token VARCHAR(255)
+)
 BEGIN
-    RETURN QUERY SELECT s.id, s.title, s.description, s.created_at FROM books.stories s WHERE s.author_id = _author_id;
-END;
-$$ LANGUAGE plpgsql;
+    UPDATE users
+    SET
+        username      = _username,
+        email         = _email,
+        password_hash = _password_hash,
+        firebase_token = _firebase_token
+    WHERE id = _id;
+END$$
 
--- Procedimiento para actualizar una historia
-CREATE OR REPLACE FUNCTION books.update_story(_id BIGINT, _title TEXT, _description TEXT)
-RETURNS VOID AS $$
+CREATE PROCEDURE delete_user (
+    IN _id BIGINT
+)
 BEGIN
-    UPDATE books.stories SET title = _title, description = _description WHERE id = _id;
-END;
-$$ LANGUAGE plpgsql;
+    DELETE FROM users
+    WHERE id = _id;
+END$$
 
--- Procedimiento para eliminar una historia
-CREATE OR REPLACE FUNCTION books.delete_story(_id BIGINT)
-RETURNS VOID AS $$
+---------------------------
+--         BOOKS
+---------------------------
+CREATE PROCEDURE create_book (
+    IN _title TEXT,
+    IN _description TEXT,
+    IN _author_id BIGINT
+)
 BEGIN
-    DELETE FROM books.stories WHERE id = _id;
-END;
-$$ LANGUAGE plpgsql;
+    INSERT INTO books (title, description, author_id)
+    VALUES (_title, _description, _author_id);
+    SELECT LAST_INSERT_ID() AS inserted_id;
+END$$
 
--- ! Procedimiento para insertar un capítulo
-CREATE OR REPLACE FUNCTION books.create_chapter(_title TEXT, _content TEXT, _story_id BIGINT)
-RETURNS BIGINT AS $$
-DECLARE _id BIGINT;
+CREATE PROCEDURE get_books_by_author (
+    IN _author_id BIGINT
+)
 BEGIN
-    INSERT INTO books.chapters (title, content, story_id)
-    VALUES (_title, _content, _story_id)
-    RETURNING id INTO _id;
-    RETURN _id;
-END;
-$$ LANGUAGE plpgsql;
+    SELECT id, title, description, created_at
+    FROM books
+    WHERE author_id = _author_id;
+END$$
 
--- Procedimiento para obtener capítulos por historia
-CREATE OR REPLACE FUNCTION books.get_chapters_by_story(_story_id BIGINT)
-RETURNS TABLE (id BIGINT, title TEXT, content TEXT, created_at TIMESTAMP) AS $$
+CREATE PROCEDURE update_book (
+    IN _id BIGINT,
+    IN _title TEXT,
+    IN _description TEXT
+)
 BEGIN
-    RETURN QUERY SELECT c.id, c.title, c.content, c.created_at FROM books.chapters c WHERE c.story_id = _story_id;
-END;
-$$ LANGUAGE plpgsql;
+    UPDATE books
+    SET
+        title       = _title,
+        description = _description
+    WHERE id = _id;
+END$$
 
--- Procedimiento para actualizar un capítulo
-CREATE OR REPLACE FUNCTION books.update_chapter(_id BIGINT, _title TEXT, _content TEXT)
-RETURNS VOID AS $$
+CREATE PROCEDURE delete_book (
+    IN _id BIGINT
+)
 BEGIN
-    UPDATE books.chapters SET title = _title, content = _content WHERE id = _id;
-END;
-$$ LANGUAGE plpgsql;
+    DELETE FROM books
+    WHERE id = _id;
+END$$
 
--- Procedimiento para eliminar un capítulo
-CREATE OR REPLACE FUNCTION books.delete_chapter(_id BIGINT)
-RETURNS VOID AS $$
+---------------------------
+--       CHAPTERS
+---------------------------
+CREATE PROCEDURE create_chapter (
+    IN _title TEXT,
+    IN _content TEXT,
+    IN _book_id BIGINT
+)
 BEGIN
-    DELETE FROM books.chapters WHERE id = _id;
-END;
-$$ LANGUAGE plpgsql;
+    INSERT INTO chapters (title, content, book_id)
+    VALUES (_title, _content, _book_id);
+    SELECT LAST_INSERT_ID() AS inserted_id;
+END$$
 
--- ! Procedimientos para la tabla likes
-CREATE OR REPLACE FUNCTION books.add_like(_user_id BIGINT, _story_id BIGINT)
-RETURNS VOID AS $$
+CREATE PROCEDURE get_chapters_by_book (
+    IN _book_id BIGINT
+)
 BEGIN
-    INSERT INTO books.likes (user_id, story_id) VALUES (_user_id, _story_id);
-END;
-$$ LANGUAGE plpgsql;
+    SELECT id, title, content, created_at
+    FROM chapters
+    WHERE book_id = _book_id;
+END$$
 
-CREATE OR REPLACE FUNCTION books.remove_like(_user_id BIGINT, _story_id BIGINT)
-RETURNS VOID AS $$
+CREATE PROCEDURE update_chapter (
+    IN _id BIGINT,
+    IN _title TEXT,
+    IN _content TEXT
+)
 BEGIN
-    DELETE FROM books.likes WHERE user_id = _user_id AND story_id = _story_id;
-END;
-$$ LANGUAGE plpgsql;
+    UPDATE chapters
+    SET
+        title = _title,
+        content = _content
+    WHERE id = _id;
+END$$
 
--- Procedimiento para obtener los likes de una historia
-CREATE OR REPLACE FUNCTION books.get_likes_by_story(_story_id BIGINT)
-RETURNS TABLE (user_id BIGINT) AS $$
+CREATE PROCEDURE delete_chapter (
+    IN _id BIGINT
+)
 BEGIN
-    RETURN QUERY SELECT l.user_id FROM books.likes l WHERE l.story_id = _story_id;
-END;
+    DELETE FROM chapters
+    WHERE id = _id;
+END$$
 
--- ! Procedimientos para la tabla genres
-CREATE OR REPLACE FUNCTION books.create_genre(_name TEXT)
-RETURNS BIGINT AS $$
-DECLARE _id BIGINT;
+---------------------------
+--        LIKES (libros)
+---------------------------
+CREATE PROCEDURE add_like (
+    IN _user_id BIGINT,
+    IN _book_id BIGINT
+)
 BEGIN
-    INSERT INTO books.genres (name) VALUES (_name) RETURNING id INTO _id;
-    RETURN _id;
-END;
-$$ LANGUAGE plpgsql;
+    INSERT INTO likes (user_id, book_id)
+    VALUES (_user_id, _book_id);
+END$$
 
-CREATE OR REPLACE FUNCTION books.get_all_genres()
-RETURNS TABLE (id BIGINT, name TEXT) AS $$
+CREATE PROCEDURE remove_like (
+    IN _user_id BIGINT,
+    IN _book_id BIGINT
+)
 BEGIN
-    RETURN QUERY SELECT g.id, g.name FROM books.genres g;
-END;
-$$ LANGUAGE plpgsql;
+    DELETE FROM likes
+    WHERE user_id = _user_id
+      AND book_id = _book_id;
+END$$
 
-CREATE OR REPLACE FUNCTION books.update_genre(_id BIGINT, _name TEXT)
-RETURNS VOID AS $$
+CREATE PROCEDURE get_likes_by_book (
+    IN _book_id BIGINT
+)
 BEGIN
-    UPDATE books.genres SET name = _name WHERE id = _id;
-END;
-$$ LANGUAGE plpgsql;
+    SELECT user_id
+    FROM likes
+    WHERE book_id = _book_id;
+END$$
 
---libros por genero
-CREATE OR REPLACE FUNCTION books.get_stories_by_genre(_genre_id BIGINT)
-RETURNS TABLE (id BIGINT, title TEXT, description TEXT, created_at TIMESTAMP) AS $$
+---------------------------
+--        GENRES
+---------------------------
+CREATE PROCEDURE create_genre (
+    IN _name VARCHAR(255)
+)
 BEGIN
-    RETURN QUERY SELECT s.id, s.title, s.description, s.created_at FROM books.stories s JOIN books.story_genres sg ON s.id = sg.story_id WHERE sg.genre_id = _genre_id;
-END;
+    INSERT INTO genres (name)
+    VALUES (_name);
+    SELECT LAST_INSERT_ID() AS inserted_id;
+END$$
+
+CREATE PROCEDURE get_all_genres ()
+BEGIN
+    SELECT id, name
+    FROM genres;
+END$$
+
+CREATE PROCEDURE update_genre (
+    IN _id BIGINT,
+    IN _name VARCHAR(255)
+)
+BEGIN
+    UPDATE genres
+    SET name = _name
+    WHERE id = _id;
+END$$
+
+CREATE PROCEDURE get_books_by_genre (
+    IN _genre_id BIGINT
+)
+BEGIN
+    SELECT b.id, b.title, b.description, b.created_at
+    FROM books b
+    INNER JOIN book_genres bg ON b.id = bg.book_id
+    WHERE bg.genre_id = _genre_id;
+END$$
+
+DELIMITER ;
