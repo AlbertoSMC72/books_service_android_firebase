@@ -1,11 +1,34 @@
 import pool from "../../config/db_config";
+import { RowDataPacket } from "mysql2";
 
 export class BookRepository {
     static async getBookById(id: number) {
         const connection = await pool.getConnection();
         try {
-            const [rows] = await connection.execute("SELECT * FROM books WHERE id = ?", [id]);
-            return rows;
+            const [rows] = await connection.execute<RowDataPacket[]>(
+                `SELECT 
+                    b.*, 
+                    COALESCE(
+                        (SELECT JSON_ARRAYAGG(g.name) 
+                        FROM genres g 
+                        JOIN book_genres bg ON g.id = bg.genre_id 
+                        WHERE bg.book_id = b.id), '[]') AS genres,
+                    COALESCE(
+                        (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', c.id, 'title', c.title)) 
+                        FROM chapters c 
+                        WHERE c.book_id = b.id), '[]') AS chapters
+                FROM books b
+                WHERE b.id = ?`,
+                [id]
+            );
+            
+            if (rows.length === 0) return null; 
+
+            const book = rows[0];
+            book.genres = JSON.parse(book.genres as string); 
+            book.chapters = JSON.parse(book.chapters as string); 
+
+            return book;
         } finally {
             connection.release();
         }
@@ -14,8 +37,20 @@ export class BookRepository {
     static async getAllBooks() {
         const connection = await pool.getConnection();
         try {
-            const [rows] = await connection.execute("SELECT * FROM books");
-            return rows;
+            const [rows] = await connection.execute<RowDataPacket[]>(
+                `SELECT 
+                    b.*, 
+                    COALESCE(
+                        (SELECT JSON_ARRAYAGG(g.name) 
+                        FROM genres g 
+                        JOIN book_genres bg ON g.id = bg.genre_id 
+                        WHERE bg.book_id = b.id), '[]') AS genres
+                FROM books b;`
+            );
+            return rows.map(book => ({
+                ...book,
+                genres: JSON.parse(book.genres as string)
+            }));
         } finally {
             connection.release();
         }
