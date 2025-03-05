@@ -15,8 +15,8 @@ export class GenreRepository {
         const connection = await pool.getConnection();
         try {
             console.log("obteniendo todos los géneros");
-            const [rows] = await connection.execute("CALL books.get_all_genres()");
-            return rows;
+            const [rows] : any = await connection.execute("CALL books.get_all_genres()");
+            return rows[0] || null;
         } finally {
             connection.release();
         }
