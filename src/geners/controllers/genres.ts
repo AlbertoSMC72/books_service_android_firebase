@@ -5,6 +5,7 @@ export class GenreController {
     static async createGenre(req: Request, res: Response) {
         try {
             const { name } = req.body;
+            console.log("Creando género:", name);
             const result = await GenreService.createGenre(name);
             res.json(result);
         } catch (error) {
