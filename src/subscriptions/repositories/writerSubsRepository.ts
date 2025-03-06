@@ -7,7 +7,7 @@ export class WriterSubscriptionRepository {
         const connection = await pool.getConnection();
         try {
             const a=await connection.execute(
-                "INSERT INTO books.user_subscriptions (user_id, follower_id) VALUES (?, ?)", 
+                "INSERT INTO user_subscriptions (user_id, follower_id) VALUES (?, ?)", 
                 [userId, writerId]
             );
             return { message: "Suscripción añadida correctamente" };
