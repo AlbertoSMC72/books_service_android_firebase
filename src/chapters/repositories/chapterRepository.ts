@@ -29,7 +29,7 @@ export class ChapterRepository {
         try {
             await connection.beginTransaction();
             const [result]: any = await connection.execute(
-                "INSERT INTO chapters (title, content, book_id, created_at) VALUES (?, ?, ?, NOW())",
+                "INSERT INTO books.chapters (title, content, book_id, created_at) VALUES (?, ?, ?, NOW())",
                 [title, content, bookId]
             );
             await connection.commit();
