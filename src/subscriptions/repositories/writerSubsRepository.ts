@@ -6,8 +6,8 @@ export class WriterSubscriptionRepository {
     static async subscribe(userId: number, writerId: number) {
         const connection = await pool.getConnection();
         try {
-            await connection.execute(
-                "INSERT INTO user_subscriptions (user_id, follower_id) VALUES (?, ?) ON DUPLICATE KEY UPDATE follower_id = follower_id", 
+            const a=await connection.execute(
+                "INSERT INTO books.user_subscriptions (user_id, follower_id) VALUES (?, ?)", 
                 [userId, writerId]
             );
             return { message: "Suscripción añadida correctamente" };
