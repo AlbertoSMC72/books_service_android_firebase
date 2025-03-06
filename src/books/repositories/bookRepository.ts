@@ -62,7 +62,7 @@ export class BookRepository {
             await connection.beginTransaction();
     
             const [result]: any = await connection.execute(
-                "INSERT INTO books.books (title, description, author_id) VALUES (?, ?, ?)",
+                "INSERT INTO books (title, description, author_id) VALUES (?, ?, ?)",
                 [title, description, authorId]
             );
 
@@ -70,7 +70,7 @@ export class BookRepository {
 
             for (const genreId of genreIds) {
                 await connection.execute(
-                    "INSERT INTO books.book_genres (book_id, genre_id) VALUES (?, ?)",
+                    "INSERT INTO book_genres (book_id, genre_id) VALUES (?, ?)",
                     [bookId, genreId]
                 );
             }
