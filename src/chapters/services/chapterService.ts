@@ -1,4 +1,7 @@
+
 import { ChapterRepository } from '../repositories/chapterRepository';
+import { getUsersWhoLikedBook } from '../../notifications/repository/getTokensUsersLikesBooks';
+import { NotificationService } from "../../notifications/notifcation";
 
 export class ChapterService {
     static async getChapterById(chapterId: number) {
@@ -10,7 +13,15 @@ export class ChapterService {
     }
 
     static async createChapter(title: string, content: string, bookId: number) {
-        return await ChapterRepository.createChapter(title, content, bookId);
+        const respuesta = await ChapterRepository.createChapter(title, content, bookId);
+
+        getUsersWhoLikedBook(bookId).then((users) => {
+            users.forEach((user) => {
+                NotificationService.sendPushNotification(user, 'Nuevo capítulo!', `Se ha publicado un nuevo capítulo "${title}", de un libro que te gusta`);
+            });
+        });
+
+        return respuesta;
     }
 
     static async updateChapter(bookId: number, title: string, content: string) {

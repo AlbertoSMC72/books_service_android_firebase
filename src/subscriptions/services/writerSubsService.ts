@@ -1,8 +1,19 @@
+import { NotificationService } from "../../notifications/notifcation";
 import { WriterSubscriptionRepository } from "../repositories/writerSubsRepository";
+import { getUserToken } from "../../notifications/repository/getTokenUsers";
 
 export class WriterSubscriptionService {
     static async subscribe(userId: number, writerId: number) {
-        return await WriterSubscriptionRepository.subscribe(userId, writerId);
+        const result  = await WriterSubscriptionRepository.subscribe(userId, writerId);
+        if(result) {
+            const writer = await getUserToken(writerId);
+            if(writer) {
+                const title = "Nuevo seguidor";
+                const body = `¡tienes un nuevo seguidor!`;
+                await NotificationService.sendPushNotification(writer, title, body);
+            }
+        }
+        return result;
     }
 
     static async unsubscribe(userId: number, writerId: number) {
@@ -13,3 +24,4 @@ export class WriterSubscriptionService {
         return await WriterSubscriptionRepository.getWriterSubscriptionsByUser(userId);
     }
 }
+

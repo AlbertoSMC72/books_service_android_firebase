@@ -17,4 +17,8 @@ export class UserService {
     static async deleteUser(id: number) {
         return await UserRepository.deleteUser(id);
     }
+
+    static async login(email: string, password: string) {
+        return await UserRepository.login(email, password);
+    }
 }

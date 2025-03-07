@@ -5,8 +5,8 @@ export class UserSubscriptionController {
     static async subscribe(req: Request, res: Response) {
         try {
             const { userId, writerId } = req.body;
-            const result = await WriterSubscriptionService.subscribe(userId, writerId);
-            res.json(result);
+            await WriterSubscriptionService.subscribe(userId, writerId);
+            res.json({ message: "Suscripción añadida correctamente" });
         } catch (error) {
             res.status(500).json({ error: "Error al suscribirse al escritor" });
         }

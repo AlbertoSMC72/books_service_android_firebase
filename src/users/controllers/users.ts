@@ -55,4 +55,18 @@ export class UserController {
             res.status(500).json({ error: "Error al eliminar usuario" });
         }
     }
+
+    static async login(req: Request, res: Response) : Promise<void>{
+        try {
+            const { email, password } = req.body;
+            const user = await UserService.login(email, password);
+            if (!user) {
+                res.status(404).json({ message: "Usuario no encontrado" });
+                return
+            }
+            res.json(user);
+        } catch (error) {
+            res.status(500).json({ error: "Error al iniciar sesión" });
+        }
+    }
 }
