@@ -2,6 +2,7 @@ import pool from "../../config/db_config";
 import { RowDataPacket } from "mysql2";
 
 export class BookSubscriptionRepository {
+
     static async subscribe(userId: number, bookId: number) {
         const connection = await pool.getConnection();
         try {
@@ -29,7 +30,7 @@ export class BookSubscriptionRepository {
         const connection = await pool.getConnection();
         try {
             const [userRows] = await connection.execute<RowDataPacket[]>(
-                "SELECT id, username FROM users WHERE id = ?", 
+                "SELECT id, username, created_at FROM users WHERE id = ?", 
                 [userId]
             );
 
@@ -40,7 +41,7 @@ export class BookSubscriptionRepository {
             }
 
             const [bookRows] = await connection.execute<RowDataPacket[]>(
-                "SELECT b.id, b.title FROM books b JOIN likes l ON b.id = l.book_id WHERE l.user_id = ?", 
+                "SELECT b.id, b.title, b.description, b.created_at FROM books b JOIN likes l ON b.id = l.book_id WHERE l.user_id = ?", 
                 [userId]
             );
 
