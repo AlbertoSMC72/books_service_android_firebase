@@ -1,14 +1,16 @@
 import pool from "../../config/db_config";
+import { RowDataPacket } from "mysql2";
+
 
 export class ChapterRepository {
     static async getChapterById(id: number) {
         const connection = await pool.getConnection();
         try {
-            const [rows] = await connection.execute(
+            const [rows] = await connection.execute<RowDataPacket[]>(
                 "SELECT * FROM chapters WHERE id = ?",
                 [id]
             );
-            return rows;
+            return rows.length > 0 ? rows[0] : null;
         } finally {
             connection.release();
         }
