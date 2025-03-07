@@ -55,7 +55,7 @@ export class UserRepository {
     static async login(email: string, password: string) {
         const connection = await pool.getConnection();
         try {
-            const [rows]: any = await connection.execute("SELECT username FROM users where email = ? and password_hash = ?", [email, password]);
+            const [rows]: any = await connection.execute("SELECT username , id FROM users where email = ? and password_hash = ?", [email, password]);
             return rows.length > 0 ? rows[0] : null;
         } finally {
             connection.release();
