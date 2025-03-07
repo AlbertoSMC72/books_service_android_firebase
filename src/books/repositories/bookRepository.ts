@@ -10,14 +10,14 @@ export class BookRepository {
                     b.*, 
                     COALESCE(
                         (SELECT JSON_ARRAYAGG(g.name) 
-                        FROM books.genres g 
+                        FROM genres g 
                         JOIN book_genres bg ON g.id = bg.genre_id 
                         WHERE bg.book_id = b.id), '[]') AS genres,
                     COALESCE(
                         (SELECT JSON_ARRAYAGG(JSON_OBJECT('id', c.id, 'title', c.title)) 
-                        FROM books.chapters c 
+                        FROM chapters c 
                         WHERE c.book_id = b.id), '[]') AS chapters
-                FROM books.books b
+                FROM books b
                 WHERE b.id = ?`,
                 [id]
             );
@@ -42,10 +42,10 @@ export class BookRepository {
                     b.*, 
                     COALESCE(
                         (SELECT JSON_ARRAYAGG(g.name) 
-                        FROM books.genres g 
-                        JOIN books.book_genres bg ON g.id = bg.genre_id 
+                        FROM genres g 
+                        JOIN book_genres bg ON g.id = bg.genre_id 
                         WHERE bg.book_id = b.id), '[]') AS genres
-                FROM books.books b;`
+                FROM books b;`
             );
             return rows.map(book => ({
                 ...book,
@@ -89,15 +89,15 @@ export class BookRepository {
         const connection = await pool.getConnection();
         try {
             await connection.execute(
-                "UPDATE books.books SET title = ?, description = ? WHERE id = ?",
+                "UPDATE books SET title = ?, description = ? WHERE id = ?",
                 [title, description, id]
             );
     
             if (genreIds) {
-                await connection.execute("DELETE FROM books.book_genres WHERE book_id = ?", [id]);
+                await connection.execute("DELETE FROM book_genres WHERE book_id = ?", [id]);
                 for (const genreId of genreIds) {
                     await connection.execute(
-                        "INSERT INTO books.book_genres (book_id, genre_id) VALUES (?, ?)",
+                        "INSERT INTO book_genres (book_id, genre_id) VALUES (?, ?)",
                         [id, genreId]
                     );
                 }
@@ -112,18 +112,26 @@ export class BookRepository {
     static async deleteBook(id: number) {
         const connection = await pool.getConnection();
         try {
-            await connection.execute("DELETE FROM books.books WHERE id = ?", [id]);
+            await connection.execute("DELETE FROM books WHERE id = ?", [id]);
             return true;
         } finally {
             connection.release();
         }
     }
-
+    
     static async getBooksByAuthor(authorId: number) {
         const connection = await pool.getConnection();
         try {
-            const [rows] = await connection.execute("SELECT * FROM books.books WHERE author_id = ?", [authorId]);
-            return rows;
+            const [userRows] = await connection.execute<RowDataPacket[]>("SELECT * FROM users WHERE id = ?", [authorId]);
+        if (userRows.length === 0) return null;
+
+        const [bookRows] = await connection.execute("SELECT * FROM books WHERE author_id = ?", [authorId]);
+
+        return {
+            user: userRows[0],  
+            books: bookRows      
+        };
+
         } finally {
             connection.release();
         }
@@ -133,7 +141,7 @@ export class BookRepository {
         const connection = await pool.getConnection();
         try {
             const [rows] = await connection.execute(
-                "SELECT b.* FROM books.books b JOIN books.book_genres bg ON b.id = bg.book_id WHERE bg.genre_id = ?",
+                "SELECT b.* FROM books b JOIN book_genres bg ON b.id = bg.book_id WHERE bg.genre_id = ?",
                 [genreId]
             );
             return rows;
