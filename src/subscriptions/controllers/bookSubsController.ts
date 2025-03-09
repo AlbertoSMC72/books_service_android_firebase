@@ -32,4 +32,20 @@ export class BookSubscriptionController {
             res.status(500).json({ error: "Error al obtener las subscripciones del libro" });
         }
     }
+
+    static async isSubscribed(req: Request, res: Response) {
+        try {
+            const userId = parseInt(req.params.userId);
+            const bookId = parseInt(req.params.bookId);
+            
+            if (isNaN(userId) || isNaN(bookId)) {
+                return res.status(400).json({ error: "userId y bookId deben ser números válidos" });
+            }
+            
+            const result = await BookSubscriptionService.isSubscribed(userId, bookId);
+            res.json(result);
+        } catch (error) {
+            res.status(500).json({ error: "Error al verificar la suscripción" });
+        }
+    }
 }

@@ -31,4 +31,20 @@ export class UserSubscriptionController {
             res.status(500).json({ error: "Error al obtener escritores seguidos" });
         }
     }
+
+    static async isSubscribed(req: Request, res: Response) {
+            try {
+                const userId = parseInt(req.params.userId);
+                const writerId = parseInt(req.params.writerId);
+                
+                if (isNaN(userId) || isNaN(writerId)) {
+                    return res.status(400).json({ error: "userId y writerId deben ser números válidos" });
+                }
+                
+                const result = await WriterSubscriptionService.isSubscribed(userId, writerId);
+                res.json(result);
+            } catch (error) {
+                res.status(500).json({ error: "Error al verificar la suscripción" });
+            }
+        }
 }

@@ -52,5 +52,21 @@ export class WriterSubscriptionRepository {
             connection.release();
         }
     }
+
+    static async isSubscribed(userId: number, writerId: number) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute<RowDataPacket[]>(
+                "SELECT 1 FROM user_subscriptions WHERE user_id = ? AND follower_id = ? LIMIT 1", 
+                [userId, writerId]
+            );
+            
+            return { 
+                isSubscribed: rows.length > 0 
+            };
+        } finally {
+            connection.release();
+        }
+    }
 }
 

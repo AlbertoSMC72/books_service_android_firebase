@@ -23,5 +23,9 @@ export class WriterSubscriptionService {
     static async getBookSubscriptionsByUser(userId: number) {
         return await WriterSubscriptionRepository.getWriterSubscriptionsByUser(userId);
     }
+
+    static async isSubscribed(userId: number, writerId: number) {
+        return await WriterSubscriptionRepository.isSubscribed(userId, writerId);
+    }
 }
 

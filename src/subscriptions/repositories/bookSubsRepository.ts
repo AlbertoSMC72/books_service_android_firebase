@@ -54,4 +54,20 @@ export class BookSubscriptionRepository {
             connection.release();
         }
     }
+
+    static async isSubscribed(userId: number, bookId: number) {
+        const connection = await pool.getConnection();
+        try {
+            const [rows] = await connection.execute<RowDataPacket[]>(
+                "SELECT 1 FROM likes WHERE user_id = ? AND book_id = ? LIMIT 1", 
+                [userId, bookId]
+            );
+            
+            return { 
+                isSubscribed: rows.length > 0 
+            };
+        } finally {
+            connection.release();
+        }
+    }
 }

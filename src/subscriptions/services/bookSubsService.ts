@@ -23,4 +23,8 @@ export class BookSubscriptionService {
     static async getBookSubscriptionsByUser(userId: number) {
         return await BookSubscriptionRepository.getBookSubscriptionsByUser(userId);
     }
+
+    static async isSubscribed(userId: number, bookId: number) {
+        return await BookSubscriptionRepository.isSubscribed(userId, bookId);
+    }
 }
