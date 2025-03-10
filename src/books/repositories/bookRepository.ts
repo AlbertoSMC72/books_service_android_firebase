@@ -8,6 +8,7 @@ export class BookRepository {
             const [rows] = await connection.execute<RowDataPacket[]>(
                 `SELECT 
                     b.*, 
+                    u.username AS author_name, 
                     COALESCE(
                         (SELECT JSON_ARRAYAGG(g.name) 
                         FROM genres g 
@@ -18,15 +19,18 @@ export class BookRepository {
                         FROM chapters c 
                         WHERE c.book_id = b.id), '[]') AS chapters
                 FROM books b
-                WHERE b.id = ?`,
+                JOIN users u ON b.author_id = u.id
+                WHERE b.id=?;`,
                 [id]
             );
-            
-            if (rows.length === 0) return null; 
+
+            if (rows.length === 0) return null;
 
             const book = rows[0];
-            book.genres = JSON.parse(book.genres as string); 
-            book.chapters = JSON.parse(book.chapters as string); 
+
+            // Convertir los strings JSON a arrays/objetos
+            book.genres = JSON.parse(book.genres as string);
+            book.chapters = JSON.parse(book.chapters as string);
 
             return book;
         } finally {
@@ -60,7 +64,7 @@ export class BookRepository {
         const connection = await pool.getConnection();
         try {
             await connection.beginTransaction();
-    
+
             const [result]: any = await connection.execute(
                 "INSERT INTO books (title, description, author_id) VALUES (?, ?, ?)",
                 [title, description, authorId]
@@ -74,7 +78,7 @@ export class BookRepository {
                     [bookId, genreId]
                 );
             }
-    
+
             await connection.commit();
             return bookId;
         } catch (error) {
@@ -92,7 +96,7 @@ export class BookRepository {
                 "UPDATE books SET title = ?, description = ? WHERE id = ?",
                 [title, description, id]
             );
-    
+
             if (genreIds) {
                 await connection.execute("DELETE FROM book_genres WHERE book_id = ?", [id]);
                 for (const genreId of genreIds) {
@@ -103,11 +107,11 @@ export class BookRepository {
                 }
             }
             return true;
-            
+
         } finally {
             connection.release();
         }
-    }    
+    }
 
     static async deleteBook(id: number) {
         const connection = await pool.getConnection();
@@ -118,19 +122,19 @@ export class BookRepository {
             connection.release();
         }
     }
-    
+
     static async getBooksByAuthor(authorId: number) {
         const connection = await pool.getConnection();
         try {
             const [userRows] = await connection.execute<RowDataPacket[]>("SELECT * FROM users WHERE id = ?", [authorId]);
-        if (userRows.length === 0) return null;
+            if (userRows.length === 0) return null;
 
-        const [bookRows] = await connection.execute("SELECT * FROM books WHERE author_id = ?", [authorId]);
+            const [bookRows] = await connection.execute("SELECT * FROM books WHERE author_id = ?", [authorId]);
 
-        return {
-            user: userRows[0],  
-            books: bookRows      
-        };
+            return {
+                user: userRows[0],
+                books: bookRows
+            };
 
         } finally {
             connection.release();
