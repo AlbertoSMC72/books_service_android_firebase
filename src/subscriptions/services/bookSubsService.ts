@@ -8,8 +8,8 @@ export class BookSubscriptionService {
         if (result) {
             const writer = await getWriterTokenByBook(bookId);
             if (writer) {
-                const title = "Nuevo like a tu libro";
-                const body = `¡tu libro ha recibido un nuevo like!`;
+                const title = "Alguien esta siguendo tu libro";
+                const body = `¡tu libro ha recibido un nuevo segidor!`;
                 await NotificationService.sendPushNotification(writer, title, body);
             }
         }
