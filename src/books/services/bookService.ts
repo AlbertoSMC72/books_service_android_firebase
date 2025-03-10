@@ -12,17 +12,27 @@ export class BookService {
     }
 
     static async createBook(title: string, description: string, authorId: number, genreIds: number[]) {
+        // Creación del libro
         const respuesta = await BookRepository.createBook(title, description, authorId, genreIds);
-
-        getUsersWhoLikedWriter(authorId).then((users) => {
-            users.forEach((user) => {
-                console.log(user)
-                NotificationService.sendPushNotification(user, 'Nuevo Libro!', `Un autor que te gusta ha publicado un nuevo libro "${title}"`);
-            });
-        });
-
+    
+        // Enviar notificaciones a los usuarios que han indicado que les gusta este escritor
+        try {
+            const users = await getUsersWhoLikedWriter(authorId);
+            await Promise.all(users.map(async (user) => {
+                console.log(user);
+                await NotificationService.sendPushNotification(
+                    user,
+                    'Nuevo Libro!',
+                    `Un autor que te gusta ha publicado un nuevo libro "${title}"`
+                );
+            }));
+        } catch (error) {
+            console.error('Error al enviar notificaciones:', error);
+        }
+    
         return respuesta;
     }
+    
 
     static async updateBook(bookId: number, title: string, description: string, genreIds?: number[]) {
         return await BookRepository.updateBook(bookId, title, description, genreIds);
