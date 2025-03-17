@@ -128,7 +128,7 @@ CREATE PROCEDURE create_user (
     IN _firebase_token VARCHAR(255)
 )
 BEGIN
-    INSERT INTO Ls (username, email, password_hash, firebase_token)
+    INSERT INTO users (username, email, password_hash, firebase_token)
     VALUES (_username, _email, _password_hash, _firebase_token);
     SELECT LAST_INSERT_ID() AS inserted_id;
 END$$
